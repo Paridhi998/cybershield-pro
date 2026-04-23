@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberShield - Smart Cybersecurity Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="hacker-theme">
+    <div class="glow-bg"></div>
+    
+    <nav class="navbar">
+        <div class="container flex-row">
+            <div class="logo">
+                🛡️ <span>CyberShield</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#scanner" class="active">Scanner</a></li>
+                <li><a href="#simulator">Simulator</a></li>
+                <li><a href="#learn">Learn</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Section: Smart Scanner -->
+        <section id="scanner" class="panel active">
+            <header>
+                <h2>Multi-Mode Scam Scanner</h2>
+                <p>Analyze suspicious text or screenshots for potential risks.</p>
+            </header>
+            
+            <div class="scanner-tabs">
+                <button class="tab-btn active" data-tab="text-scan">Text Mode</button>
+                <button class="tab-btn" data-tab="image-scan">Screenshot Mode</button>
+            </div>
+
+            <div class="scanner-container">
+                <!-- Text Mode UI -->
+                <div id="text-scan" class="tab-content">
+                    <textarea id="scanInput" placeholder="Paste your message here..."></textarea>
+                    <div class="scanner-actions">
+                        <button id="scanBtn" class="btn btn-primary">Scan Text</button>
+                        <button id="clearBtn" class="btn btn-outline">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Image Mode UI -->
+                <div id="image-scan" class="tab-content hidden">
+                    <div class="upload-zone">
+                        <input type="file" id="imageInput" accept="image/png, image/jpeg, image/jpg" hidden>
+                        <div class="upload-box" id="uploadBox">
+                            <span>📁 Click or Drag Screenshot</span>
+                            <p class="text-muted">PNG, JPG (Max 2MB)</p>
+                        </div>
+                        <img id="previewImage" class="preview-img hidden">
+                        <div class="scanner-actions" style="margin-top: 20px;">
+                            <button id="scanImageBtn" class="btn btn-primary hidden">Analyze Screenshot</button>
+                            <button id="resetImageBtn" class="btn btn-outline hidden">Reset</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Common Results UI -->
+                <div id="scanResults" class="results-area hidden">
+                    <div id="processingLoader" class="loader-container hidden">
+                        <div class="spinner"></div>
+                        <p>Processing with OCR engine...</p>
+                    </div>
+
+                    <div id="resultsContent">
+                        <div class="risk-summary">
+                            <div class="risk-meter-container">
+                                <div class="risk-meter">
+                                    <span class="risk-label">Risk Level</span>
+                                    <span id="riskValue" class="risk-value">0%</span>
+                                    <div class="meter-bar"><div id="meterFill" class="meter-fill"></div></div>
+                                </div>
+                            </div>
+                            <div class="verdict-box">
+                                <span class="label">Verdict:</span>
+                                <span id="verdictText" class="verdict">Safe</span>
+                            </div>
+                        </div>
+                        
+                        <div class="analysis-details">
+                            <div id="extractedSection" class="hidden">
+                                <h3>Extracted Context:</h3>
+                                <div id="extractedText" class="extracted-text-box"></div>
+                            </div>
+                            <h3>Analysis Findings:</h3>
+                            <ul id="findingsList"></ul>
+                            <p id="explanationText" class="explanation"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Scam Simulator -->
+        <section id="simulator" class="panel hidden">
+            <header>
+                <h2>Scam Simulation Lab</h2>
+                <p>Experience realistic attack scenarios to learn how to spot them.</p>
+            </header>
+            
+            <div class="scenario-grid" id="scenarioGrid">
+                <div class="scenario-card" onclick="startSimulation('bank')">
+                    <div class="icon">🏦</div>
+                    <h3>Fake Bank Login</h3>
+                    <p>Learn how phishing sites steal credentials.</p>
+                    <button class="btn btn-small">Launch Simulation</button>
+                </div>
+                <div class="scenario-card" onclick="startSimulation('otp')">
+                    <div class="icon">📱</div>
+                    <h3>OTP Fraud</h3>
+                    <p>Scammers acting as support to steal codes.</p>
+                    <button class="btn btn-small">Launch Simulation</button>
+                </div>
+                <div class="scenario-card" onclick="startSimulation('whatsapp')">
+                    <div class="icon">💬</div>
+                    <h3>WhatsApp "Hi Mom"</h3>
+                    <p>Social engineering via family impersonation.</p>
+                    <button class="btn btn-small">Launch Simulation</button>
+                </div>
+            </div>
+
+            <div id="simOverlay" class="sim-overlay hidden">
+                <div class="shield-phone">
+                    <div class="phone-top">
+                        <span class="sensor"></span>
+                        <span class="speaker"></span>
+                    </div>
+                    <div class="phone-screen">
+                        <div class="status-bar">
+                            <span>4G</span>
+                            <span>12:00</span>
+                            <span>85% 🔋</span>
+                        </div>
+                        <div id="simAppContent" class="sim-app-content">
+                            <!-- AI Content will be injected here -->
+                            <div class="app-loader">
+                                <div class="pulse"></div>
+                                <p>Establishing Secure Session...</p>
+                            </div>
+                        </div>
+                        <div id="forensicView" class="forensic-view hidden">
+                            <h3>🔍 Security Review</h3>
+                            <ul id="redFlagsList"></ul>
+                            <p id="simExplanation"></p>
+                            <button class="btn btn-primary" onclick="closeSimulation()">Finish Session</button>
+                        </div>
+                    </div>
+                    <div class="phone-bottom">
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <button id="closeSim" class="sim-float-close">&times;</button>
+            </div>
+        </section>
+
+        <!-- Section: Learn (Gamified) -->
+        <section id="learn" class="panel hidden">
+            <header>
+                <h2>Cyber Guardian Academy</h2>
+                <p>Master your defenses, earn XP, and level up your security skills.</p>
+            </header>
+
+            <!-- Gaming Dashboard -->
+            <div class="learn-dashboard">
+                <div class="stat-item">
+                    <span class="stat-label">Your Rank</span>
+                    <span id="userRank" class="stat-value">Script Kiddie</span>
+                </div>
+                <div class="xp-bar-container">
+                    <div class="flex-row" style="margin-bottom: 5px;">
+                        <span class="stat-label">Level <span id="userLevel">1</span></span>
+                        <span class="stat-label"><span id="currentXP">0</span> / <span id="nextLevelXP">500</span> XP</span>
+                    </div>
+                    <div class="xp-bar">
+                        <div id="xpFill" class="xp-fill"></div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Badges</span>
+                    <div id="badgeList" class="badge-grid">
+                        <div class="badge-icon" title="Phishing Pro">🎣</div>
+                        <div class="badge-icon" title="MFA Master">🔑</div>
+                        <div class="badge-icon" title="Data Guard">🛡️</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quest Path -->
+            <div class="quest-path" id="questPath">
+                <!-- Nodes will be injected via JS -->
+            </div>
+
+            <!-- Module Overlay (Hidden by default) -->
+            <div id="moduleOverlay" class="module-overlay hidden">
+                <div class="module-window">
+                    <div class="sim-header">
+                        <span id="moduleTitle">Module Title</span>
+                        <button id="closeModule" class="close-btn">&times;</button>
+                    </div>
+                    <div class="module-body">
+                        <div id="moduleContent"></div>
+                        <div id="quizSection" class="quiz-container hidden">
+                            <h4 id="quizQuestion">Question here?</h4>
+                            <div id="quizOptions"></div>
+                        </div>
+                        <div class="flex-row" style="margin-top: 30px;">
+                            <button id="startQuizBtn" class="btn btn-secondary">Take Knowledge Check</button>
+                            <button id="completeModuleBtn" class="btn btn-primary hidden">Claim XP & Complete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="container">
+        <p>&copy; 2024 CyberShield Protective Tools. For educational purposes only.</p>
+    </footer>
+
+    <div id="alertModal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="modalTitle">Alert</h2>
+            <div id="modalBody"></div>
+            <button id="closeModal" class="btn btn-primary">I Understand</button>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal hidden">
+        <div class="modal-content" style="border-color: var(--secondary);">
+            <h2 id="authTitle">Secure Access</h2>
+            <div id="authForm" class="auth-form" style="margin-top: 20px;">
+                <input type="text" id="authUsername" placeholder="Username" class="btn btn-outline" style="width: 100%; margin-bottom: 10px; cursor: text; text-align: left;">
+                <input type="password" id="authPassword" placeholder="Password" class="btn btn-outline" style="width: 100%; margin-bottom: 20px; cursor: text; text-align: left;">
+                <button id="loginBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">Login</button>
+                <button id="signupBtn" class="btn btn-outline" style="width: 100%;">Create Account</button>
+            </div>
+            <p id="authError" style="color: var(--danger); margin-top: 15px; font-size: 0.85rem;"></p>
+        </div>
+    </div>
+
+    <!-- Detachable AI Assistant UI -->
+    <div id="aiAssistantContainer">
+        <button id="aiAssistantBtn" class="floating-btn">
+            <span class="icon">💬</span>
+            <span class="label">Assistance</span>
+        </button>
+
+        <div id="assistantWindow" class="assistant-window hidden">
+            <div class="assistant-header">
+                <h3>Shield AI Assistant</h3>
+                <button id="closeAssistant">×</button>
+            </div>
+            <div id="assistantMessages" class="assistant-messages">
+                <div class="msg ai">Hello! I'm your cybersecurity assistant. How can I help you stay safe today?</div>
+            </div>
+            <div class="assistant-input-area">
+                <textarea id="assistantInput" placeholder="Ask about scam risks..." maxlength="500"></textarea>
+                <button id="sendAssistantMsg">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
