@@ -49,10 +49,13 @@ Open your browser and go to:
 ---
 
 ## ✨ Features
-- **Smart Scanner**: Detects scams using keyword analysis and urgency detection.
-- **Advanced Simulator**: Realistic interactive runs for Bank Phishing, OTP Fraud, and WhatsApp scams.
-- **AI Assistant**: Cybersecurity-focused chatbot with Google Gemini integration and local fallback.
-- **Security**: Built-in rate limiting to prevent API abuse.
+Smart Scanner: Detects scams using keyword analysis and urgency detection.
+
+Advanced Simulator: Realistic interactive runs for Bank Phishing, OTP Fraud, and WhatsApp scams.
+
+Gamified Learning: Quizzes and challenges to reinforce cybersecurity awareness.
+
+Security: Built-in rate limiting to prevent API abuse.
 
 ---
 *Disclaimer: This project is for educational purposes only. Always use official channels for sensitive financial transactions.*
