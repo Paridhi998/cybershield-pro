@@ -305,7 +305,7 @@ async function performScan() {
                 'Content-Type': 'application/json',
                 'x-auth-token': AuthManager.state.token || ''
             },
-            body: JSON.stringify({ text: message })
+            body: JSON.stringify({ message: message })
         });
 
         // Check if response is successful and is JSON
@@ -486,7 +486,7 @@ async function startSimulation(type) {
         });
 
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        
+
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
             throw new TypeError("Backend returned HTML/Text instead of JSON. Ensure your Render backend is running.");
