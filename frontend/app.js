@@ -1,6 +1,5 @@
-/** 
- * --- AUTHENTICATION MANAGER ---
- */
+const API_BASE_URL = "https://cybershield-backend.onrender.com";
+
 const AuthManager = (() => {
     const state = {
         token: localStorage.getItem('cs_token'),
@@ -34,7 +33,7 @@ const AuthManager = (() => {
         const errorBar = document.getElementById('authError');
 
         try {
-            const res = await fetch(`/api/auth/${type}`, {
+            const res = await fetch(`${API_BASE_URL}/api/auth/${type}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -55,7 +54,7 @@ const AuthManager = (() => {
 
     const fetchUser = async () => {
         try {
-            const res = await fetch('/api/auth/user', {
+            const res = await fetch(`${API_BASE_URL}/api/auth/user`, {
                 headers: { 'x-auth-token': state.token }
             });
             if (res.status === 401) return logout();
@@ -103,7 +102,7 @@ const GameManager = (() => {
         if (!AuthManager.state.token) return renderQuestPath(); 
 
         try {
-            const res = await fetch('/api/learn/status', {
+            const res = await fetch(`${API_BASE_URL}/api/learn/status`, {
                 headers: { 'x-auth-token': AuthManager.state.token }
             });
             serverState = await res.json();
@@ -206,7 +205,7 @@ const GameManager = (() => {
 
     const submitAnswer = async (moduleId, answerIndex, btn) => {
         try {
-            const res = await fetch('/api/learn/complete-module', {
+            const res = await fetch(`${API_BASE_URL}/api/learn/complete-module`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -276,45 +275,72 @@ function initTabs() {
     });
 }
 
-let isScanning = false;
 let scanTimeout = null;
+let isScanning = false;
+
+
+/**
+ * Core Scanning Logic with Concurrency Guard
+ */
+async function performScan() {
+    if (isScanning) return; 
+
+    const input = document.getElementById('scanInput');
+    const btn = document.getElementById('scanBtn');
+    if (!input || !btn) return;
+
+    const message = input.value.trim();
+    if (!message) return;
+
+    isScanning = true;
+    btn.disabled = true;
+    btn.innerText = "Analyzing...";
+    showLoading(true);
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/scan`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'x-auth-token': AuthManager.state.token || '' 
+            },
+            body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        
+        if (data.isFallback) showAIWarning("⚠️ AI temporarily unavailable. Using secure local scan.");
+        else hideAIWarning();
+        
+        displayResults(data);
+    } catch (e) {
+        console.error("Scan Error:", e);
+    } finally {
+        showLoading(false);
+        isScanning = false;
+        btn.disabled = false;
+        btn.innerText = "Scan Message";
+    }
+}
+
+/**
+ * Debounced Trigger: Ensures only one request after typing stops
+ */
+function debouncedScan() {
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = setTimeout(() => {
+        performScan();
+    }, 500);
+}
 
 function initTextScanner() {
     const scanBtn = document.getElementById('scanBtn');
-    if (!scanBtn) return;
+    const scanInput = document.getElementById('scanInput');
+    if (!scanBtn || !scanInput) return;
 
+    // Trigger on click (Immediate check)
     scanBtn.onclick = () => {
-        if (isScanning) return;
         if (scanTimeout) clearTimeout(scanTimeout);
-        
-        scanTimeout = setTimeout(async () => {
-            const message = document.getElementById('scanInput').value.trim();
-            if (!message) return alert("Enter text.");
-
-            isScanning = true;
-            scanBtn.disabled = true;
-            scanBtn.innerText = "Scanning...";
-            showLoading(true);
-
-            try {
-                const res = await fetch('/api/scan', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-auth-token': AuthManager.state.token || '' },
-                    body: JSON.stringify({ message })
-                });
-                const data = await res.json();
-                if (data.isFallback) showAIWarning("⚠️ AI temporarily unavailable. Using secure local scan.");
-                else hideAIWarning();
-                displayResults(data);
-            } catch (e) {
-                alert("Scan failed.");
-            } finally {
-                showLoading(false);
-                isScanning = false;
-                scanBtn.disabled = false;
-                scanBtn.innerText = "Scan Message";
-            }
-        }, 500);
+        performScan();
     };
 
     document.getElementById('clearBtn').onclick = () => {
@@ -382,7 +408,7 @@ function initImageScanner() {
         
         showLoading(true, true);
         try {
-            const res = await fetch('/api/scan-image', { 
+            const res = await fetch(`${API_BASE_URL}/api/scan-image`, { 
                 method: 'POST', 
                 headers: { 'x-auth-token': AuthManager.state.token || '' },
                 body: formData 
@@ -432,7 +458,7 @@ async function startSimulation(type) {
     `;
 
     try {
-        const response = await fetch(`/api/simulator/generate?type=${type}`);
+        const response = await fetch(`${API_BASE_URL}/api/simulator/generate?type=${type}`);
         currentScenario = await response.json();
         renderScenario();
     } catch (error) {
@@ -499,14 +525,34 @@ function showLoading(show, ocr = false) {
 }
 
 function displayResults(data) {
-    document.getElementById('riskValue').innerText = data.score + "%";
-    document.getElementById('meterFill').style.width = data.score + "%";
-    document.getElementById('verdictText').innerText = data.verdict;
-    document.getElementById('explanationText').innerText = data.explanation;
-    document.getElementById('findingsList').innerHTML = data.reasons.map(r => `<li>${r}</li>`).join('');
-    if (data.extractedText) {
-        document.getElementById('extractedSection').classList.remove('hidden');
-        document.getElementById('extractedText').innerText = data.extractedText;
+    // --- SAFETY SHIELD: Prevent app crash on API failure ---
+    if (!data || typeof data !== 'object') {
+        console.error("UI: Received invalid scan data", data);
+        return;
+    }
+
+    // Default fallbacks to prevent UI glitches
+    const score = data.score ?? 0;
+    const verdict = data.verdict || "Unknown";
+    const explanation = data.explanation || "No analysis available.";
+    const reasons = Array.isArray(data.reasons) ? data.reasons : [];
+
+    document.getElementById('riskValue').innerText = score + "%";
+    document.getElementById('meterFill').style.width = score + "%";
+    document.getElementById('verdictText').innerText = verdict;
+    document.getElementById('explanationText').innerText = explanation;
+    
+    // Safety check for .map() to prevent crashes
+    document.getElementById('findingsList').innerHTML = reasons.map(r => `<li>${r}</li>`).join('');
+    
+    const extractedSection = document.getElementById('extractedSection');
+    if (extractedSection) {
+        if (data.extractedText) {
+            extractedSection.classList.remove('hidden');
+            document.getElementById('extractedText').innerText = data.extractedText;
+        } else {
+            extractedSection.classList.add('hidden');
+        }
     }
 }
 
@@ -533,180 +579,5 @@ document.addEventListener('DOMContentLoaded', () => {
     const startQuizBtn = document.getElementById('startQuizBtn');
     if (startQuizBtn) startQuizBtn.onclick = () => document.getElementById('quizSection').classList.remove('hidden');
 
-    // 3. Initialize AI Assistant
-    if (typeof AssistantModule !== 'undefined') AssistantModule.init();
+
 });
-
-/**
- * --- DETACHABLE AI ASSISTANT MODULE ---
- */
-const AI_ASSISTANT_ENABLED = true;
-
-const AssistantModule = (() => {
-    let isAssistantChatting = false;
-
-    const renderUI = () => {
-        if (document.getElementById('aiAssistantContainer')) return;
-        
-        const container = document.createElement('div');
-        container.id = 'aiAssistantContainer';
-        container.innerHTML = `
-            <button id="aiAssistantBtn" class="floating-btn">
-                <span class="icon">💬</span>
-                <span class="label">Assistance</span>
-            </button>
-            <div id="assistantWindow" class="assistant-window hidden">
-                <div class="assistant-header">
-                    <h3>Shield AI Assistant</h3>
-                    <button id="closeAssistant">×</button>
-                </div>
-                <div id="assistantMessages" class="assistant-messages">
-                    <div class="msg ai">Hello! I'm your cybersecurity assistant. Let's keep your data safe.</div>
-                </div>
-                <div class="assistant-input-area">
-                    <textarea id="assistantInput" placeholder="Ask about scam risks..." maxlength="500"></textarea>
-                    <button id="sendAssistantMsg">Send</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(container);
-    };
-
-    const init = () => {
-        try {
-            if (!AI_ASSISTANT_ENABLED) {
-                const container = document.getElementById('aiAssistantContainer');
-                if (container) container.remove();
-                return;
-            }
-
-            renderUI(); // Force-inject UI components
-
-            const btn = document.getElementById('aiAssistantBtn');
-            const close = document.getElementById('closeAssistant');
-            const send = document.getElementById('sendAssistantMsg');
-            const input = document.getElementById('assistantInput');
-
-            if (btn) btn.onclick = toggleWindow;
-            if (close) close.onclick = () => toggleWindow(false);
-            if (send) send.onclick = handleSend;
-            if (input) {
-                input.onkeydown = (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend();
-                    }
-                };
-            }
-            console.log("🛡️ Shield AI Assistant: Operational (Force-Injected)");
-        } catch (e) {
-            console.error("AI Assistant: Injection Failure.", e);
-        }
-    };
-
-    const toggleWindow = (show) => {
-        const win = document.getElementById('assistantWindow');
-        if (win) {
-            if (typeof show === 'boolean') win.classList.toggle('hidden', !show);
-            else win.classList.toggle('hidden');
-        }
-    };
-
-    const addMessage = (text, type = 'ai') => {
-        const box = document.getElementById('assistantMessages');
-        if (!box) return;
-        
-        // Remove typing indicator if it exists
-        const typing = document.getElementById('typingIndicator');
-        if (typing) typing.remove();
-
-        const msg = document.createElement('div');
-        msg.className = `msg ${type}`;
-        msg.innerText = text;
-        box.appendChild(msg);
-        box.scrollTop = box.scrollHeight;
-    };
-
-    const showTyping = () => {
-        const box = document.getElementById('assistantMessages');
-        if (!box) return;
-        if (document.getElementById('typingIndicator')) return;
-
-        const typing = document.createElement('div');
-        typing.id = 'typingIndicator';
-        typing.className = 'msg ai typing';
-        typing.innerText = "Analyzing query...";
-        box.appendChild(typing);
-        box.scrollTop = box.scrollHeight;
-    };
-
-    const handleSend = async (forcedText) => {
-        const input = document.getElementById('assistantInput');
-        const text = forcedText || input.value.trim();
-
-        if (!text || isAssistantChatting) return;
-        
-        if (!forcedText) {
-            addMessage(text, 'user');
-            input.value = '';
-        }
-        
-        showTyping();
-        isAssistantChatting = true;
-
-        try {
-            const res = await fetch('/api/assistant/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text.substring(0, 500) })
-            });
-
-            const data = await res.json();
-            
-            if (!res.ok) throw new Error(data.error || 'System offline');
-            addMessage(data.reply, 'ai');
-        } catch (e) {
-            addMessage('⚠️ AI Assistant currently busy. Please try again soon.', 'ai');
-        } finally {
-            isAssistantChatting = false;
-        }
-    };
-
-    const explainResult = (data) => {
-        if (!AI_ASSISTANT_ENABLED) return;
-        toggleWindow(true);
-        
-        // --- LOCAL OPTIMIZATION ---
-        // Instead of calling the API, use the forensic explanation we already have!
-        addMessage("Can you explain my last scan result?", 'user');
-        
-        const forensicExplanation = data.explanation || "No deep analysis available for this scan.";
-        addMessage(`🛡️ Forensic Review:\n\n${forensicExplanation}\n\nVerdict: ${data.verdict}\nRisk Score: ${data.score}%`, 'ai');
-        
-        addMessage("Would you like a deeper cloud-AI dive into any specific finding?", 'ai');
-        // Users can now type their specific follow-up, saving an automated quota-pull.
-    };
-
-    return { init, explainResult };
-})();
-
-// Extended displayResults to include AI Explanation Button
-const originalDisplayResults = displayResults;
-displayResults = (data) => {
-    originalDisplayResults(data);
-    
-    const oldBtn = document.getElementById('aiExplainBtn');
-    if (oldBtn) oldBtn.remove();
-
-    const findingsList = document.getElementById('findingsList');
-    if (findingsList && AI_ASSISTANT_ENABLED && !data.isFallback) {
-        const explainBtn = document.createElement('button');
-        explainBtn.id = 'aiExplainBtn';
-        explainBtn.className = 'btn btn-outline';
-        explainBtn.style.marginTop = '15px';
-        explainBtn.style.width = '100%';
-        explainBtn.innerHTML = '🛡️ Ask Assistant to Explain';
-        explainBtn.onclick = () => AssistantModule.explainResult(data);
-        findingsList.parentNode.appendChild(explainBtn);
-    }
-};
