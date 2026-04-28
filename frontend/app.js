@@ -484,11 +484,23 @@ async function startSimulation(type) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ type })
         });
+
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new TypeError("Backend returned HTML/Text instead of JSON. Ensure your Render backend is running.");
+        }
+
         currentScenario = await response.json();
         renderScenario();
     } catch (error) {
         console.error("Simulator Error:", error);
-        appContent.innerHTML = `<p class="error">Failed to load simulation. Please check your connection.</p>`;
+        appContent.innerHTML = `<div class="error-msg">
+            <p><strong>⚠️ Connection Failed</strong></p>
+            <p>${error.message}</p>
+            <button class="btn btn-perform" onclick="location.reload()">Retry Connection</button>
+        </div>`;
     }
 }
 
