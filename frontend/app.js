@@ -48,6 +48,7 @@ const AuthManager = (() => {
                 location.reload(); 
             }
         } catch (e) {
+            console.error('Auth Error:', e);
             errorBar.innerText = 'Server connection failed.';
         }
     };
@@ -62,7 +63,7 @@ const AuthManager = (() => {
             updateUI();
             GameManager.syncWithServer(); 
         } catch (e) {
-            console.error("Auth: Failed to fetch user.");
+            console.error("Auth: Failed to fetch user.", e);
         }
     };
 
@@ -109,7 +110,7 @@ const GameManager = (() => {
             updateDashboard();
             renderQuestPath();
         } catch (e) {
-            console.error("Game: Sync failed.");
+            console.error("Game: Sync failed.", e);
         }
     };
 
@@ -227,6 +228,7 @@ const GameManager = (() => {
                 };
             }
         } catch (e) {
+            console.error("Module completion error:", e);
             alert("Verification failed. Check server connection.");
         }
     };
@@ -304,9 +306,14 @@ async function performScan() {
                 'Content-Type': 'application/json', 
                 'x-auth-token': AuthManager.state.token || '' 
             },
-            body: JSON.stringify({ message })
-        });
-        const data = await res.json();
+            body: JSON.stringify({ text: message })
+        }).then(res => res.json())
+          .catch(err => {
+              console.error("Scan API Error:", err);
+              return { error: "Connection failed" };
+          });
+        
+        const data = res;
         
         if (data.isFallback) showAIWarning("⚠️ AI temporarily unavailable. Using secure local scan.");
         else hideAIWarning();
@@ -400,21 +407,21 @@ function initImageScanner() {
         if (isScanning) return;
         
         const formData = new FormData();
-        formData.append('image', imageInput.files[0]);
+        formData.append('file', imageInput.files[0]);
         
         isScanning = true;
         scanImageBtn.disabled = true;
         scanImageBtn.innerText = "Extracting...";
         
-        showLoading(true, true);
         try {
             const res = await fetch(`${API_BASE_URL}/api/scan-image`, { 
                 method: 'POST', 
-                headers: { 'x-auth-token': AuthManager.state.token || '' },
                 body: formData 
             });
-            displayResults(await res.json());
+            const data = await res.json();
+            displayResults(data);
         } catch (e) { 
+            console.error("OCR analysis failed:", e);
             alert("OCR analysis failed."); 
         } finally { 
             showLoading(false); 
@@ -458,10 +465,15 @@ async function startSimulation(type) {
     `;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/simulator/generate?type=${type}`);
+        const response = await fetch(`${API_BASE_URL}/api/simulator`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type })
+        });
         currentScenario = await response.json();
         renderScenario();
     } catch (error) {
+        console.error("Simulator Error:", error);
         appContent.innerHTML = `<p class="error">Failed to load simulation. Please check your connection.</p>`;
     }
 }
