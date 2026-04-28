@@ -1,5 +1,4 @@
-const API_BASE_URL = "https://cybershield-backend.onrender.com";
-
+const API_BASE_URL = "https://cybershield-pro-1x15.onrender.com";
 const AuthManager = (() => {
     const state = {
         token: localStorage.getItem('cs_token'),
@@ -45,7 +44,7 @@ const AuthManager = (() => {
             } else {
                 localStorage.setItem('cs_token', data.token);
                 state.token = data.token;
-                location.reload(); 
+                location.reload();
             }
         } catch (e) {
             console.error('Auth Error:', e);
@@ -61,7 +60,7 @@ const AuthManager = (() => {
             if (res.status === 401) return logout();
             state.user = await res.json();
             updateUI();
-            GameManager.syncWithServer(); 
+            GameManager.syncWithServer();
         } catch (e) {
             console.error("Auth: Failed to fetch user.", e);
         }
@@ -71,7 +70,7 @@ const AuthManager = (() => {
         const authNav = document.getElementById('authNav');
         const userNav = document.getElementById('userNav');
         const usernameDisplay = document.getElementById('usernameDisplay');
-        
+
         if (authNav) authNav.classList.add('hidden');
         if (userNav) userNav.classList.remove('hidden');
         if (usernameDisplay) usernameDisplay.innerText = state.user.username;
@@ -100,7 +99,7 @@ const GameManager = (() => {
     let serverState = null;
 
     const syncWithServer = async () => {
-        if (!AuthManager.state.token) return renderQuestPath(); 
+        if (!AuthManager.state.token) return renderQuestPath();
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/learn/status`, {
@@ -224,7 +223,7 @@ const GameManager = (() => {
                 document.getElementById('completeModuleBtn').classList.remove('hidden');
                 document.getElementById('completeModuleBtn').onclick = () => {
                     document.getElementById('moduleOverlay').classList.add('hidden');
-                    syncWithServer(); 
+                    syncWithServer();
                 };
             }
         } catch (e) {
@@ -248,7 +247,7 @@ function initNavigation() {
         link.addEventListener('click', (e) => {
             const href = link.getAttribute('href');
             if (!href.startsWith('#')) return;
-            
+
             e.preventDefault();
             const targetId = href.substring(1);
 
@@ -285,7 +284,7 @@ let isScanning = false;
  * Core Scanning Logic with Concurrency Guard
  */
 async function performScan() {
-    if (isScanning) return; 
+    if (isScanning) return;
 
     const input = document.getElementById('scanInput');
     const btn = document.getElementById('scanBtn');
@@ -300,27 +299,39 @@ async function performScan() {
     showLoading(true);
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/scan`, {
+        const response = await fetch(`${API_BASE_URL}/api/scan`, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'x-auth-token': AuthManager.state.token || '' 
+            headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': AuthManager.state.token || ''
             },
             body: JSON.stringify({ text: message })
-        }).then(res => res.json())
-          .catch(err => {
-              console.error("Scan API Error:", err);
-              return { error: "Connection failed" };
-          });
-        
-        const data = res;
-        
+        });
+
+        // Check if response is successful and is JSON
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new TypeError("Received non-JSON response from server. Check backend configuration.");
+        }
+
+        const data = await response.json();
+
         if (data.isFallback) showAIWarning("⚠️ AI temporarily unavailable. Using secure local scan.");
         else hideAIWarning();
-        
+
         displayResults(data);
     } catch (e) {
         console.error("Scan Error:", e);
+        // Show user-friendly error in the UI if possible
+        const resultsContent = document.getElementById('resultsContent');
+        if (resultsContent) {
+            resultsContent.innerHTML = `<p class="error">⚠️ Scan Failed: ${e.message}</p>`;
+            document.getElementById('scanResults').classList.remove('hidden');
+        }
     } finally {
         showLoading(false);
         isScanning = false;
@@ -405,26 +416,29 @@ function initImageScanner() {
 
     scanImageBtn.onclick = async () => {
         if (isScanning) return;
-        
+
         const formData = new FormData();
         formData.append('file', imageInput.files[0]);
-        
+
         isScanning = true;
         scanImageBtn.disabled = true;
         scanImageBtn.innerText = "Extracting...";
-        
+
         try {
-            const res = await fetch(`${API_BASE_URL}/api/scan-image`, { 
-                method: 'POST', 
-                body: formData 
+            const response = await fetch(`${API_BASE_URL}/api/scan-image`, {
+                method: 'POST',
+                body: formData
             });
-            const data = await res.json();
+
+            if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+
+            const data = await response.json();
             displayResults(data);
-        } catch (e) { 
+        } catch (e) {
             console.error("OCR analysis failed:", e);
-            alert("OCR analysis failed."); 
-        } finally { 
-            showLoading(false); 
+            alert("OCR analysis failed: " + e.message);
+        } finally {
+            showLoading(false);
             isScanning = false;
             scanImageBtn.disabled = false;
             scanImageBtn.innerText = "Scan Image";
@@ -451,11 +465,11 @@ async function startSimulation(type) {
     const overlay = document.getElementById('simOverlay');
     const appContent = document.getElementById('simAppContent');
     const forensicView = document.getElementById('forensicView');
-    
+
     overlay.classList.remove('hidden');
     forensicView.classList.add('hidden');
     forensicView.classList.remove('active');
-    
+
     // Show Loading state
     appContent.innerHTML = `
         <div class="app-loader">
@@ -496,7 +510,7 @@ function renderScenario() {
 
 function handleSimChoice(reported) {
     const isCorrect = reported === currentScenario.isScam;
-    
+
     // Award XP
     if (isCorrect) {
         GameManager.addXP(50);
@@ -504,7 +518,7 @@ function handleSimChoice(reported) {
     } else {
         showSimFeedback("⚠️ Security Breach", "You've been successfully phished in this simulation.");
     }
-    
+
     showForensicReview();
 }
 
@@ -528,10 +542,10 @@ function showForensicReview() {
 function showLoading(show, ocr = false) {
     // Ensure the results container is visible if we are loading OR if we have data
     document.getElementById('scanResults').classList.remove('hidden');
-    
+
     // Toggle the loader spinner
     document.getElementById('processingLoader').classList.toggle('hidden', !show);
-    
+
     // Toggle the results content (hide while loading, show when done)
     document.getElementById('resultsContent').classList.toggle('hidden', show);
 }
@@ -553,10 +567,10 @@ function displayResults(data) {
     document.getElementById('meterFill').style.width = score + "%";
     document.getElementById('verdictText').innerText = verdict;
     document.getElementById('explanationText').innerText = explanation;
-    
+
     // Safety check for .map() to prevent crashes
     document.getElementById('findingsList').innerHTML = reasons.map(r => `<li>${r}</li>`).join('');
-    
+
     const extractedSection = document.getElementById('extractedSection');
     if (extractedSection) {
         if (data.extractedText) {
@@ -573,21 +587,21 @@ function displayResults(data) {
  */
 document.addEventListener('DOMContentLoaded', () => {
     console.log("🚀 CyberShield UI Loaded");
-    
+
     // Core Handlers
     initNavigation();
     initTabs();
     initTextScanner();
     initImageScanner();
     initSimulator();
-    
+
     // 2. Initialize Game Systems
     GameManager.syncWithServer();
-    
+
     // UI Close Listeners
     const closeModule = document.getElementById('closeModule');
     if (closeModule) closeModule.onclick = () => document.getElementById('moduleOverlay').classList.add('hidden');
-    
+
     const startQuizBtn = document.getElementById('startQuizBtn');
     if (startQuizBtn) startQuizBtn.onclick = () => document.getElementById('quizSection').classList.remove('hidden');
 
