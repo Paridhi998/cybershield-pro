@@ -1,19 +1,20 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config();
+
+// -- 1. Clean Environment Verification 
+const apiKey = process.env.GEMINI_API_KEY;
+console.log("🔍 AI ENGINE STATUS:");
+if (!apiKey) {
+  console.log("❌ GEMINI_API_KEY NOT FOUND in .env");
+} else {
+  console.log(`✅ GEMINI_API_KEY LOADED (${apiKey.substring(0, 5)}...)`);
+}
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const rateLimit = require('express-rate-limit');
 
-// -- DEBUG: Verify Environment Loading --
-console.log('🔍 Environment Check:');
-console.log('   - MONGO_URI:', process.env.MONGO_URI ? 'FOUND (Filtered)' : 'NOT FOUND');
-const apiKey = process.env.GOOGLE_API_KEY || '';
-const isPlaceholder = apiKey.includes('your_gemini_api_key_here');
-console.log('   - GOOGLE_API_KEY:', apiKey ? (isPlaceholder ? 'PLACEHOLDER DETECTED ❌' : `FOUND (${apiKey.substring(0, 5)}...)`) : 'NOT FOUND ⚠️');
-console.log('   - NODE_ENV:', process.env.NODE_ENV);
-
-// -- 1. Configuration & Validation --
+// -- 2. Configuration & Validation --
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -23,18 +24,16 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
-// -- 2. Database Connection (Resilient) --
+// -- 3. Database Connection (Resilient) --
 const connectDB = async (retryCount = 5) => {
   try {
     await mongoose.connect(MONGO_URI);
     console.log('📦 Connected to MongoDB');
-    
-    // -- Forensic Check: Find Corrupted Data --
+
     const User = require('./models/User');
     const corruptedCount = await User.countDocuments({ username: { $exists: false } });
     if (corruptedCount > 0) {
       console.warn(`🚨 DATA INTEGRITY ALERT: Found ${corruptedCount} user documents missing a username.`);
-      console.warn(`   This is likely the cause of the "User validation failed" logs.`);
     }
   } catch (err) {
     if (retryCount > 0) {
@@ -51,25 +50,27 @@ connectDB();
 
 const app = express();
 
-// -- 3. Security Middleware --
-app.use(cors());
+// -- 4. Security Middleware --
+app.use(cors({
+  origin: "*", // Or specific array like ["https://your-netlify-url.netlify.app", "http://localhost:5000"] if you want strict security, but * ensures it works initially
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "x-auth-token"]
+}));
 app.use(express.json());
 
-// Global Rate Limiter (Prevents general DDoS/Spam)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 300, // Increased from 100 to allow smooth scanner usage
   message: { error: 'Too many requests from this IP, please try again later.' }
 });
 app.use('/api', globalLimiter);
 
-// -- 4. Route Mounting --
+// -- 5. Route Mounting --
 const scanRoutes = require('./routes/scan');
 const scanImageRoutes = require('./routes/scanImage');
 const authRoutes = require('./routes/auth');
 const learnRoutes = require('./routes/learn');
 const simulatorRoutes = require('./routes/simulator');
-const assistantRoutes = require('./routes/assistant');
 
 
 app.use('/api/scan', scanRoutes);
@@ -77,28 +78,29 @@ app.use('/api/scan-image', scanImageRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/learn', learnRoutes);
 app.use('/api/simulator', simulatorRoutes);
-app.use('/api/assistant', assistantRoutes);
 
 
-// -- 5. Static Assets & SPA Routing --
+// Root Health Check Route
+app.get('/', (req, res) => {
+  res.send('✅ CyberShield backend is running!');
+});
+
+// -- 6. Static Assets & SPA Routing --
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Fine-tuned SPA Catch-all
 app.get('*', (req, res) => {
-  // If the request starts with /api but didn't match any route, return 404 JSON, not HTML
   if (req.originalUrl.startsWith('/api')) {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// -- 6. Global Error Handler (Production Safe) --
+// -- 7. Global Error Handler --
 app.use((err, req, res, next) => {
   console.error(`🔥 ERROR: ${err.message}`);
-  
   const status = err.status || 500;
-  const message = NODE_ENV === 'production' 
-    ? 'An internal server error occurred' 
+  const message = NODE_ENV === 'production'
+    ? 'An internal server error occurred'
     : err.message;
 
   res.status(status).json({
@@ -107,7 +109,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// -- 7. Server Start --
+// -- 8. Server Start --
 const server = app.listen(PORT, () => {
   console.log(`
   🛡️  CyberShield AI - Production-Hardened
@@ -120,7 +122,7 @@ const server = app.listen(PORT, () => {
   `);
 });
 
-// -- 8. Graceful Shutdown --
+// -- 9. Graceful Shutdown --
 const shutdown = () => {
   console.log('\n🛑 Shutdown signal received. Closing connections...');
   server.close(async () => {

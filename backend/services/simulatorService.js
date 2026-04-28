@@ -1,43 +1,5 @@
-const aiService = require('./aiService');
-
-/**
- * Simulator Service
- * Generates realistic AI-powered phishing scenarios for training.
- */
 const generateScenario = async (type) => {
-  const prompt = `
-Generate a realistic interactive cybersecurity training scenario for the type: "${type}".
-The response must be active, professional, and educational.
-
-Return ONLY a valid JSON object:
-{
-  "title": "A short descriptive title",
-  "sender": "Specific sender name or fake email",
-  "content": "The actual message content (HTML supported for links)",
-  "redFlags": ["Reason 1", "Reason 2", "Reason 3"],
-  "isScam": true,
-  "explanation": "A professional explanation of this specific threat"
-}
-
-Scenarios:
-- "bank": Fake login alerts, suspicious withdrawals.
-- "otp": Fake support asking for a security code.
-- "whatsapp": Impersonating family members in trouble.
-`;
-
-  const responseText = await aiService.callGeminiAPI(prompt);
-  
-  if (!responseText) {
-    return getFallbackScenario(type);
-  }
-
-  try {
-    const jsonStr = responseText.replace(/```json|```/g, "").trim();
-    return JSON.parse(jsonStr);
-  } catch (error) {
-    console.error("Scenario JSON Parse Error:", error.message);
-    return getFallbackScenario(type);
-  }
+  return getFallbackScenario(type);
 };
 
 /**
